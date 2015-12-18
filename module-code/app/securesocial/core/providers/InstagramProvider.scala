@@ -17,27 +17,27 @@
 package securesocial.core.providers
 
 import securesocial.core._
-import securesocial.core.services.{ CacheService, RoutesService }
-
-import scala.concurrent.Future
+import play.api.{Logger, Application}
+import play.api.libs.ws.WS
+import securesocial.core.IdentityId
+import securesocial.core.SocialUser
+import securesocial.core.AuthenticationException
+import scala.Some
 
 /**
  * An Instagram provider
  *
  */
-class InstagramProvider(routesService: RoutesService,
-  cacheService: CacheService,
-  client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+class InstagramProvider(application: Application) extends OAuth2Provider(application) {
+
   val GetAuthenticatedUser = "https://api.instagram.com/v1/users/self?access_token=%s"
   val AccessToken = "access_token"
   val TokenType = "token_type"
   val Data = "data"
   val Username = "username"
-  val FullName = "full_name"
+  val FullName ="full_name"
   val ProfilePic = "profile_picture"
   val Id = "id"
-<<<<<<< HEAD
   
   override def id = InstagramProvider.Instagram
 
@@ -58,29 +58,29 @@ class InstagramProvider(routesService: RoutesService,
     try {
       val response = awaitResult(promise)
       val me = response.json
-=======
 
-  override val id = InstagramProvider.Instagram
->>>>>>> db770d3b221162d7e164899d0dd3426d631ebf14
-
-  def fillProfile(info: OAuth2Info): Future[BasicProfile] = {
-    client.retrieveProfile(GetAuthenticatedUser.format(info.accessToken)).map { me =>
       (me \ "response" \ "user").asOpt[String] match {
         case Some(msg) => {
-          logger.error(s"[securesocial] error retrieving profile information from Instagram. Message = $msg")
+          Logger.error("[securesocial] error retrieving profile information from Instagram. Message = %s".format(msg))
           throw new AuthenticationException()
         }
-        case _ =>
-          val userId = (me \ Data \ Id).as[String]
-          val fullName = (me \ Data \ FullName).asOpt[String]
-          val avatarUrl = (me \ Data \ ProfilePic).asOpt[String]
-          BasicProfile(id, userId, None, None, fullName, None, avatarUrl, authMethod, oAuth2Info = Some(info))
+        case _ => {
+          val userId = ( me \ Data \ Id ).as[String]
+          val fullName =  ( me \ Data \ FullName ).asOpt[String].getOrElse("")
+          val avatarUrl = ( me \ Data \ ProfilePic ).asOpt[String]
+
+          user.copy(
+            identityId = IdentityId(userId , id),
+            fullName = fullName,
+            avatarUrl = avatarUrl
+          )
+        }
       }
-    } recover {
-      case e: AuthenticationException => throw e
-      case e: Exception =>
-        logger.error("[securesocial] error retrieving profile information from Instagram", e)
+    } catch {
+      case e: Exception => {
+        Logger.error( "[securesocial] error retrieving profile information from Instagram", e)
         throw new AuthenticationException()
+      }
     }
   }
 }
