@@ -30,7 +30,7 @@ import scala.Some
  */
 class InstagramProvider(application: Application) extends OAuth2Provider(application) {
 
-  val GetAuthenticatedUser = "https://api.instagram.com/v1/users/self?access_token=%s"
+  val GetAuthenticatedUser = if (settings.sig) {"https://api.instagram.com/v1/users/self?access_token=%s&sig=%s" } else {"https://api.instagram.com/v1/users/self?access_token=%s"}
   val AccessToken = "access_token"
   val TokenType = "token_type"
   val Data = "data"

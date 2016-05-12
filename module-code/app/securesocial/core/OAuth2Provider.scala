@@ -64,20 +64,27 @@ abstract class OAuth2Provider(application: Application, jsonResponse: Boolean = 
   }
 
   private def getAccessToken[A](code: String)(implicit request: Request[A]):OAuth2Info = {
-    var params = Map(
+    val params_not_signed = Map(
       OAuth2Constants.ClientId -> Seq(settings.clientId),
       OAuth2Constants.ClientSecret -> Seq(settings.clientSecret),
       OAuth2Constants.GrantType -> Seq(OAuth2Constants.AuthorizationCode),
       OAuth2Constants.Code -> Seq(code),
       OAuth2Constants.RedirectUri -> Seq(RoutesHelper.authenticate(id).absoluteURL(IdentityProvider.sslEnabled))
     ) ++ settings.accessTokenUrlParams.mapValues(Seq(_))
-    if (settings.sig) {
+
+    val params = params_not_signed ++ (if (settings.sig)
+    {
       var url : String = "/oauth/access_token"
-      for (p <- params.toSeq.sortBy(_._1)) 
+      for (p <- params_not_signed.toSeq.sortBy(_._1)) 
         url += "|" + p._1 + "=" + p._2.head
       val sig : String = hashMac(url, settings.clientSecret)
-      params.put("sig", Seq(sig))
+      //System.out.println("sig :" + sig)
+      Map(OAuth2Constants.Sig -> Seq(sig))
     }
+    else
+        Map())
+
+    System.out.println("params :" + params)
     val call = WS.url(settings.accessTokenUrl).post(params)
     try {
       buildInfo(awaitResult(call))
@@ -112,7 +119,7 @@ abstract class OAuth2Provider(application: Application, jsonResponse: Boolean = 
     } catch {
        case e : Throwable => logger.error("ERROR : " + e.toString())
        return ""
-       case _ => logger.error("ERROR")
+       case _ : Throwable => logger.error("ERROR")
        return ""
     }
     return ""
@@ -222,4 +229,5 @@ object OAuth2Constants {
   val ExpiresIn = "expires_in"
   val RefreshToken = "refresh_token"
   val AccessDenied = "access_denied"
+  val Sig = "sig"
 }
